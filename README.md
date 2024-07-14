@@ -3,6 +3,9 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/dstdsv.svg)](https://pypi.org/project/dstdsv)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/dstdsv.svg)](https://pypi.org/project/dstdsv)
 
+- Florian Dupeyron &lt;florian.dupeyron&lt;at&gt;mugcat.fr&gt;
+- July 2024
+
 -----
 
 This is a simple python library that allows to pilot an imada DST/DSV series force gauge.
