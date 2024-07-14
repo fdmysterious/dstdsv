@@ -29,9 +29,9 @@ dependencies = [
 ]
 
 [project.urls]
-#Documentation = "https://github.com/U.N. Owen/dstdsv#readme"
-#Issues = "https://github.com/U.N. Owen/dstdsv/issues"
-#Source = "https://github.com/U.N. Owen/dstdsv"
+Documentation = "https://github.com/fdmysterious/dstdsv#readme"
+Issues = "https://github.com/fdmysterious/dstdsv/issues"
+Source = "https://github.com/fdmysterious/dstdsv"
 
 [tool.hatch.version]
 path = "src/dstdsv/__about__.py"
