@@ -2,18 +2,18 @@
 #
 # SPDX-License-Identifier: MIT
 
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
 
-import re
 import serial
 import serial.tools.list_ports
-
 
 ####################################################
 # Enums
 ####################################################
+
 
 class GaugeMeasureUnit(Enum):
     """Measurement unit"""
@@ -42,7 +42,8 @@ class GaugeMeasureState(Enum):
 # Custom excpetions
 ####################################################
 
-class GaugeException(Exception):
+
+class GaugeError(Exception):
     def __init__(self, msg):
         super().__init__(msg)
 
@@ -51,10 +52,10 @@ class GaugeException(Exception):
 # Data structures
 ####################################################
 
+
 @dataclass
 class GaugeMeasure:
     """Output measure value returned by DST/DSV device"""
-
 
     """Measure value"""
     value: Decimal
@@ -73,11 +74,14 @@ class GaugeMeasure:
 # Protocol handler
 ####################################################
 
+
 class GaugeProtocol:
     """Manage the device protocol according to various transports"""
 
     COMMAND_TERMINATOR = "\r".encode("ascii")
-    MEASURE_REGEX = re.compile(r"(?P<sign>[+]|[-])(?P<value>[0-9]+[.][0-9]+)(?P<unit>[A-Z])(?P<mode>[A-Z])(?P<state>[A-Z])")
+    MEASURE_REGEX = re.compile(
+        r"(?P<sign>[+]|[-])(?P<value>[0-9]+[.][0-9]+)(?P<unit>[A-Z])(?P<mode>[A-Z])(?P<state>[A-Z])"
+    )
 
     def __init__(self, transport):
         self.transport = transport
@@ -92,20 +96,20 @@ class GaugeProtocol:
     def __rx(self):
         """Utility function to receive data from the device"""
 
-        rx = self.transport.read_until(self.COMMAND_TERMINATOR).decode("ascii")
-        return rx
+        rx = self.transport.read_until(self.COMMAND_TERMINATOR)
+
+        return rx.decode("ascii") if rx is not None else None
 
     def __req(self, cmd):
         """Utility function to send a command to the device and wait for a response"""
-        
+
         self.__tx(cmd)
         resp = self.__rx().strip()
 
         if resp == "E":
-            raise GaugeException(f"Invalid command: {cmd}")
+            raise GaugeError(f"Invalid command: {cmd}")
 
         return resp
-
 
     ################
 
@@ -116,7 +120,6 @@ class GaugeProtocol:
 
         self.__rx()
 
-
     def zero(self):
         """
         Reset measurement
@@ -124,8 +127,7 @@ class GaugeProtocol:
 
         resp = self.__req("Z")
         if resp != "R":
-            raise GaugeException(f"Error while resetting: {resp}")
-
+            raise GaugeError(f"Error while resetting: {resp}")
 
     def measure(self):
         """
@@ -137,7 +139,7 @@ class GaugeProtocol:
         mt = self.MEASURE_REGEX.match(resp)
 
         if not mt:
-            raise GaugeException(f"Cannot parse measure response: {resp}")
+            raise GaugeError(f"Cannot parse measure response: {resp}")
 
         # Get measure informations
         sign = mt.group("sign")
@@ -157,12 +159,11 @@ class GaugeProtocol:
 
         # Return value
         return GaugeMeasure(
-            value = value,
-            unit = unit,
-            mode = mode,
-            state = state,
+            value=value,
+            unit=unit,
+            mode=mode,
+            state=state,
         )
-
 
     def mode_set(self, mode: GaugeMeasureMode):
         """Set the measurement mode"""
@@ -170,8 +171,7 @@ class GaugeProtocol:
         resp = self.__req(mode.value)
 
         if resp != "R":
-            raise GaugeException(f"Cannot set measure mode to {mode}, got response: {resp}")
-
+            raise GaugeError(f"Cannot set measure mode to {mode}, got response: {resp}")
 
     def unit_set(self, unit: GaugeMeasureUnit):
         """Set the measurement unit"""
@@ -179,27 +179,26 @@ class GaugeProtocol:
         resp = self.__req(unit.value)
 
         if resp != "R":
-            raise GaugeException(f"Cannot set measure unit to {unit}, got response: {resp}")
-
+            raise GaugeError(f"Cannot set measure unit to {unit}, got response: {resp}")
 
     def limit_points_set(self, low_limit: Decimal, high_limit: Decimal):
-        high_limit = f"{low_limit:1.2f}"
-        low_limit  = f"{high_limit:1.2f}"
+        high_limit_str = f"{low_limit:1.2f}"
+        low_limit_str = f"{high_limit:1.2f}"
 
-        cmd = f"E{high_limit}{low_limit}"
+        cmd = f"E{high_limit_str}{low_limit_str}"
 
         resp = self.__req(cmd)
 
         if resp != "R":
-            raise GaugeException(f"Cannot set high/low limits values to {high_limit} and {low_limit}: {resp}")
+            raise GaugeError(f"Cannot set high/low limits values to {high_limit} and {low_limit}: {resp}")
 
     def store(self):
         """Store measure in memory"""
 
         resp = self.__req("OM")
-        
+
         if resp != "R":
-            raise GaugeException(f"Cannot save measure in internal memory: {resp}")
+            raise GaugeError(f"Cannot save measure in internal memory: {resp}")
 
     def clear_last(self):
         """Clear last measure in memory"""
@@ -207,7 +206,7 @@ class GaugeProtocol:
         resp = self.__req("OC0")
 
         if resp != "R":
-            raise GaugeException(f"Cannot clear last measure in memory: {resp}")
+            raise GaugeError(f"Cannot clear last measure in memory: {resp}")
 
     def clear_all(self):
         """Clear all stored values in memory"""
@@ -215,12 +214,12 @@ class GaugeProtocol:
         resp = self.__req("OC1")
 
         if resp != "R":
-            raise GaugeException(f"Cannot clear stored measures: {resp}")
+            raise GaugeError(f"Cannot clear stored measures: {resp}")
 
     def power_off(self):
         """Turn off the device
 
-        WARNING! After calling this function, the application doesn't close the serial link. User must not attempt 
+        WARNING! After calling this function, the application doesn't close the serial link. User must not attempt
         to do another access after this function, as it will cause an exception.
         """
 
@@ -231,6 +230,7 @@ class GaugeProtocol:
 # Devices classes
 ####################################################
 
+
 class GaugeUSBDevice:
     """
     Wrapper class to access the device when plugged in using USB cable
@@ -239,9 +239,9 @@ class GaugeUSBDevice:
     def __init__(self, device_path: str):
         self.transport = serial.Serial(
             device_path,
-            baudrate = 256000,
-            rtscts = True,
-            timeout = 0.1,
+            baudrate=256000,
+            rtscts=True,
+            timeout=0.1,
         )
 
         self.protocol = GaugeProtocol(self.transport)
@@ -254,8 +254,8 @@ class GaugeUSBDevice:
 
         return self.protocol
 
-    def __exit__(self, type, value, traceback):
-        self.transport.__exit__(type, value, traceback)
+    def __exit__(self, thetype, value, traceback):
+        self.transport.__exit__(thetype, value, traceback)
 
 
 class GaugeSerialDevice:
@@ -264,12 +264,7 @@ class GaugeSerialDevice:
     """
 
     def __init__(self, device_path: str):
-        self.transport = serial.Serial(
-            device_path,
-            baudrate = 19200,
-            rtscts = False,
-            timeout = 0.1
-        )
+        self.transport = serial.Serial(device_path, baudrate=19200, rtscts=False, timeout=0.1)
 
         self.protocol = GaugeProtocol(self.transport)
 
@@ -281,14 +276,14 @@ class GaugeSerialDevice:
 
         return self.protocol
 
-
-    def __exit__(self, type, value, traceback):
-        self.transport.__exit__(type, value, traceback)
+    def __exit__(self, thetype, value, traceback):
+        self.transport.__exit__(thetype, value, traceback)
 
 
 ####################################################
 # Utilities
 ####################################################
+
 
 def find_devices():
     """
@@ -301,16 +296,14 @@ def find_devices():
 
     vid = 0x1412
     pids = {
-        0x0200 # Imada DST/DSV series
+        0x0200  # Imada DST/DSV series
     }
 
-    return list(
-        map(
-            lambda x: (x.device, x.description,),
-            filter(
-                lambda x: (x.vid == vid) and (x.pid in pids),
-                serial.tools.list_ports.comports()
-            )
+    return [
+        (
+            x.device,
+            x.description,
         )
-    )
-
+        for x in serial.tools.list_ports.comports()
+        if (x.vid == vid) and (x.pid in pids)
+    ]

@@ -43,6 +43,14 @@ extra-dependencies = [
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/dstdsv tests}"
 
+#####################################################
+
+[tool.ruff.lint]
+ignore = ["TRY003", "EM102", "T201", "EM101"]
+
+[tool.mypy]
+disable_error_code = "import-untyped"
+
 [tool.coverage.run]
 source_pkgs = ["dstdsv", "tests"]
 branch = true
@@ -61,3 +69,4 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
 ]
+

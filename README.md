@@ -1,12 +1,15 @@
-# dstdsv
+# Python module to access to Imada DST/DSV series devices
 
 [![PyPI - Version](https://img.shields.io/pypi/v/dstdsv.svg)](https://pypi.org/project/dstdsv)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/dstdsv.svg)](https://pypi.org/project/dstdsv)
 
 -----
 
-This is a simple python library that allows to pilot an imada DST/DSV series force gauge. The following basic features
-are implemented:
+This is a simple python library that allows to pilot an imada DST/DSV series force gauge.
+
+![IMADA DST/DSV series](./docs/img/DST-series.png)
+
+The following basic features are implemented:
 
 - Get a measure
 - Reset the measurement
@@ -27,6 +30,27 @@ pip install dstdsv
 ```
 
 This package depends on `pyserial` to handle serial communication.
+
+
+## Test your setup
+
+To test your setup, two utility scripts are available:
+
+- `dstdsv.utils.list_devices`: List compatible devices found on PC (when connected using USB cable);
+- `dstdsv.utils.test_measure`: Test 10 measures on first found compatible devices
+
+For instance, on my linux machine:
+
+```
+> python -m dstdsv.utils.list_devices
+Found compatible devices:
+- /dev/ttyUSB3: DSV/DST Series - DSV/DST Series
+```
+
+```
+> hatch run python -m dstdsv.utils.test_measure
+Measured data [Decimal('0.00'), Decimal('0.00'), Decimal('0.00'), Decimal('0.00'), Decimal('0.00'), Decimal('0.00'), Decimal('0.00'), Decimal('0.00'), Decimal('0.00'), Decimal('0.00')]
+```
 
 
 ## Basic usage
@@ -67,6 +91,47 @@ if __name__ == "__main__":
 
             time.sleep(nexttime-time.time()) # Sleep until next measure time
 ```
+
+
+Optionally, the `dstdsv.find_devices()` function can be used to find compatible devices:
+
+```python
+from dstdsv import (
+    GaugeUSBDevice,
+    GaugeMeasureMode,
+    GaugeMeasureUnit,
+)
+
+import time
+
+if __name__ == "__main__":
+    # Find compatible devices
+    devices = find_devices()
+
+    if not devices: # If list is empty, raise an error
+        raise RuntimeError("Found no compatible device")
+
+    selected_dev, selected_dev_description = devices[0] # Select the first found device
+
+    print(f"- Use found device at {selected_dev}: {selected_dev_description}")
+
+    with GaugeUSBDevice(selected_dev) as gauge:
+        # Initial setup
+        gauge.unit_set(GaugeMeasureUnit.Newton)
+        gauge.mode_set(GaugeMeasureMode.Realtime)
+
+        # Do 10 Measures
+        measures = []
+        for i in range(10):
+            curtime = time.time()
+            nexttime = curtime + 0.1
+
+            measure = gauge.measure()
+            measures.append(measure.value)
+
+            time.sleep(nexttime-time.time()) # Sleep until next measure time
+```
+
 
 ## Note for linux users
 
